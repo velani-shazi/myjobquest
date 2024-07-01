@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MyJobQuest - Job Search Simplified</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css" rel="stylesheet">
+    <style>
+    :root {
+    --primary-color: #4285f4;
+    --background-color: #f0f5ff;
+    --text-color: #333;
+    --border-color: #e0e0e0;
+}
+body {
+    font-family: 'Roboto', sans-serif;
+    background-color: var(--background-color);
+    color: var(--text-color);
+}
+.navbar {
+    background-color: #ffffff;
+    border-bottom: 1px solid var(--border-color);
+}
+.navbar-brand {
+    font-weight: 700;
+    font-size: 1.5rem;
+    color: var(--primary-color);
+}
+.jumbotron {
+    background-color: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 2rem;
+    text-align: center;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+.btn-primary {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+.credit {
+    text-align: center;
+    margin-top: 2rem;
+    color: #5f6368;
+    font-size: 0.9rem;
+}
+.search-form {
+    max-width: 500px;
+    margin: 0 auto;
+}
+#jobList {
+    margin-top: 2rem;
+}
+.job-card, .careerjunction-job-card, .careers24-job-card {
+    background-color: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: flex-start;
+}
+.job-card:hover, .careerjunction-job-card:hover, .careers24-job-card:hover {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+.job-details {
+    flex: 1;
+}
+.job-logo {
+    margin-left: 1rem;
+    max-height: 100px;  /* Increased from 75px */
+    max-width: 100px;   /* Increased from 75px */
+    width: 100px;       /* Added to maintain aspect ratio */
+    height: 100px;      /* Added to maintain aspect ratio */
+    object-fit: contain;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    padding: 4px;
+}
+.job-title {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-size: 1.25rem;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    display: block;
+}
+.job-title:hover {
+    text-decoration: underline;
+}
+.job-details p {
+    margin-bottom: 0.25rem;
+    font-size: 0.95rem;
+    color: #5a5a5a;
+}
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-light">
+        <a class="navbar-brand" href="#"><i class="fas fa-search"></i> MyJobQuest</a>
+    </nav>
+    <div class="container mt-4">
+        <div class="jumbotron">
+            <h1 class="display-4"><i class="fas fa-briefcase"></i> Find Your Dream Job</h1>
+            <p class="lead">Discover exciting career opportunities with our advanced job search tool.</p>
+            <hr class="my-4">
+            <form class="search-form">
+                <div class="input-group mb-3">
+                    <input type="text" id="jobSearch" class="form-control" placeholder="Enter job title or keywords">
+                    <div class="input-group-append">
+                        <button id="searchButton" class="btn btn-primary" type="button"><i class="fas fa-search"></i> Search Jobs</button>
+                    </div>
+                </div>
+            </form>
+            <p id="loadingMessage" class="mt-3"></p>
+        </div>
+        <div id="jobList"></div>
+    </div>
+    <div class="credit">
+        Built by Menzi Shazi
+    </div>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+    async function ensureCorrectUrl(url) {
+        const cleanedUrl = url.replace(/^file:\/\/\/.*?(?=\/jobs)/, '');
+        return `https://www.pnet.co.za${cleanedUrl.startsWith('/') ? '' : '/'}${cleanedUrl}`;
+    }
+
+    async function scrapePnet(jobTitle) {
+        const baseUrl = 'https://www.pnet.co.za/jobs';
+        const searchUrl = `${baseUrl}/${encodeURIComponent(jobTitle)}-jobs`;
+        const proxyUrl = 'https://corsproxy.io/?';
+        console.log('Fetching search results...');
+
+        try {
+            const response = await fetch(proxyUrl + encodeURIComponent(searchUrl));
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const html = await response.text();
+
+            console.log('Parsing job postings information...');
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+
+            const jobPostings = [];
+            const jobElements = doc.querySelectorAll('article[data-genesis-element="CARD"]');
+
+            jobElements.forEach(jobElement => {
+                const job = {};
+                const titleElement = jobElement.querySelector('h2 > a');
+                job.title = titleElement ? titleElement.textContent.trim() : 'N/A';
+                job.link = titleElement ? 'https://www.pnet.co.za' + titleElement.getAttribute('href') : '#';
+
+
+                const companyElement = jobElement.querySelector('.res-1r68twq .res-owv6ii');
+                job.company = companyElement ? companyElement.textContent.trim() : 'N/A';
+
+                const locationElement = jobElement.querySelector('.res-qchjmw .res-owv6ii');
+                job.location = locationElement ? locationElement.textContent.trim() : 'N/A';
+
+                const imageElement = jobElement.querySelector('img');
+                job.image = imageElement ? imageElement.src : null;
+
+                const dayPostedElement = jobElement.querySelector('time');
+                job.Posted = dayPostedElement ? dayPostedElement.textContent.trim() : 'N/A';
+
+                jobPostings.push(job);
+            });
+
+            console.log('Job postings extracted:', jobPostings.length);
+            return jobPostings;
+        } catch (error) {
+            console.error('Error scraping Pnet:', error);
+            throw error;
+        }
+    }
+
+    async function scrapeCareerJunction(jobTitle) {
+        console.log('Fetching search results from CareerJunction...');
+        const searchUrl = `https://www.careerjunction.co.za/jobs/results?keywords=${encodeURIComponent(jobTitle)}&autosuggestEndpoint=%2Fautosuggest&location=0&category=&btnSubmit=+`;
+        const proxyUrl = 'https://corsproxy.io/?';
+
+        try {
+            const response = await fetch(proxyUrl + encodeURIComponent(searchUrl));
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const html = await response.text();
+
+            console.log('Parsing job postings information...');
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+
+            const jobPostings = [];
+            const jobElements = doc.querySelectorAll('.module.job-result');
+
+            jobElements.forEach(jobElement => {
+                const job = {};
+        const titleElement = jobElement.querySelector('.job-result-title h2 a');
+        job.title = titleElement ? titleElement.textContent.trim() : 'N/A';
+        job.link = titleElement ? 'https://www.careerjunction.co.za' + titleElement.getAttribute('href') : '#';
+
+                const companyElement = jobElement.querySelector('.job-result-title h3 a');
+                job.company = companyElement ? companyElement.textContent.trim() : 'N/A';
+
+                const locationElements = jobElement.querySelectorAll('.job-overview .location a');
+                job.location = Array.from(locationElements).map(el => el.textContent.trim()).join(' / ');
+
+                const imageElement = jobElement.querySelector('.job-result-logo img');
+                job.image = imageElement ? imageElement.src : null;
+
+                const salaryElement = jobElement.querySelector('.job-overview .salary');
+                job.salary = salaryElement ? salaryElement.textContent.trim() : 'N/A';
+
+                const positionElement = jobElement.querySelector('.job-overview .position');
+                job.position = positionElement ? positionElement.textContent.trim() : 'N/A';
+
+                const updatedTimeElement = jobElement.querySelector('.job-overview .updated-time');
+                job.updatedTime = updatedTimeElement ? updatedTimeElement.textContent.trim() : 'N/A';
+
+                const expiresElement = jobElement.querySelector('.job-overview .expires');
+                job.expires = expiresElement ? expiresElement.textContent.trim() : 'N/A';
+
+                const jobRefElement = jobElement.querySelector('.job-overview .cjun-job-ref');
+                job.jobRef = jobRefElement ? jobRefElement.textContent.trim() : 'N/A';
+
+                jobPostings.push(job);
+            });
+
+            console.log('Job postings extracted:', jobPostings.length);
+            return jobPostings;
+        } catch (error) {
+            console.error('Error scraping CareerJunction:', error);
+            throw error;
+        }
+    }
+
+    async function scrapeCareers24(jobTitle) {
+        const proxyUrl = 'https://corsproxy.io/?';
+        const searchUrl = `https://www.careers24.com/jobs/kw-${encodeURIComponent(jobTitle)}/rmt-incl/`;
+        console.log('Fetching search results from Careers24...');
+
+        try {
+            const response = await fetch(proxyUrl + encodeURIComponent(searchUrl));
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const html = await response.text();
+
+            console.log('Parsing job postings information...');
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+
+            const jobPostings = [];
+            const jobElements = doc.querySelectorAll('.job-card');
+
+            jobElements.forEach(jobElement => {
+                const job = {};
+        const titleElement = jobElement.querySelector('.job-card-head a[data-control="vacancy-title"] h2');
+        job.title = titleElement ? titleElement.textContent.trim() : 'N/A';
+        job.link = titleElement ? 'https://www.careers24.com' + titleElement.closest('a').getAttribute('href') : '#';
+
+                const locationElement = jobElement.querySelector('.job-card-left ul li');
+                job.location = locationElement ? locationElement.textContent.trim() : 'N/A';
+
+                const jobTypeElement = jobElement.querySelector('.job-card-left ul li:nth-child(2)');
+                job.jobType = jobTypeElement ? jobTypeElement.textContent.replace('Job Type: ', '').trim() : 'N/A';
+
+                const postedElement = jobElement.querySelector('.job-card-left ul li:nth-child(3)');
+                if (postedElement) {
+                    const postedText = postedElement.childNodes[0].textContent.replace('Posted: ', '').trim();
+                    const daysLeftText = postedElement.querySelector('span').textContent.replace('Days left', '').trim();
+                    job.posted = postedText;
+                    job.daysLeft = daysLeftText;
+                } else {
+                    job.posted = 'N/A';
+                    job.daysLeft = 'N/A';
+                }
+
+                const imageElement = jobElement.querySelector('.job-card-right a img');
+                job.image = imageElement ? imageElement.src : null;
+
+                jobPostings.push(job);
+            });
+
+            console.log('Job postings extracted:', jobPostings.length);
+            return jobPostings;
+        } catch (error) {
+            console.error('Error scraping Careers24:', error);
+            throw error;
+        }
+    }
+
+    function displayJobs(jobs) {
+    const jobList = document.getElementById('jobList');
+    jobList.innerHTML = '';
+    jobs.forEach(job => {
+        if (job.title !== 'N/A') {
+            const jobCard = document.createElement('div');
+            jobCard.className = 'job-card';
+            
+            let jobContent = `
+                <div class="job-details">
+                    <a href="${job.link}" target="_blank" class="job-title">${job.title}</a>
+            `;
+
+            if (job.company) {
+                jobContent += `<p><strong>Company:</strong> ${job.company}</p>`;
+            }
+            
+            jobContent += `<p><strong>Location:</strong> ${job.location}</p>`;
+
+            if (job.jobRef !== undefined) {
+                // CareerJunction specific content
+                jobContent += `
+                    <p><strong>Salary:</strong> ${job.salary}</p>
+                    <p><strong>Position:</strong> ${job.position}</p>
+                    <p><strong>Posted:</strong> ${job.updatedTime}</p>
+                    <p><strong>Expires:</strong> ${job.expires}</p>
+                    <p><strong>Reference:</strong> ${job.jobRef}</p>
+                `;
+            } else if (job.jobType !== undefined) {
+                // Careers24 specific content
+                jobContent += `
+                    <p><strong>Job Type:</strong> ${job.jobType}</p>
+                    <p><strong>Posted:</strong> ${job.posted}</p>
+                    <p><strong>Days Left:</strong> ${job.daysLeft}</p>
+                `;
+            } else {
+                // Pnet specific content
+                jobContent += `<p><strong>Posted:</strong> ${job.Posted}</p>`;
+            }
+
+            jobContent += `</div>`;
+
+            if (job.image) {
+                jobContent += `<img src="${job.image}" alt="${job.company || 'Company'} logo" class="job-logo">`;
+            }
+
+            jobCard.innerHTML = jobContent;
+            jobList.appendChild(jobCard);
+        }
+    });
+}
+
+    document.getElementById('searchButton').addEventListener('click', async () => {
+        const jobTitle = document.getElementById('jobSearch').value.trim();
+        if (!jobTitle) {
+            alert('Please enter a job title or keywords');
+            return;
+        }
+
+        const loadingMessage = document.getElementById('loadingMessage');
+        loadingMessage.textContent = `Searching for ${jobTitle} jobs... Please wait.`;
+        try {
+            const [pnetJobs, careerJunctionJobs, careers24Jobs] = await Promise.all([
+                scrapePnet(jobTitle),
+                scrapeCareerJunction(jobTitle),
+                scrapeCareers24(jobTitle)
+            ]);
+            const allJobs = [...pnetJobs, ...careerJunctionJobs, ...careers24Jobs];
+            displayJobs(allJobs);
+            loadingMessage.textContent = `Found ${allJobs.length} ${jobTitle} jobs.`;
+        } catch (error) {
+            loadingMessage.textContent = 'Error searching for jobs. Please try again later.';
+            console.error(error);
+        }
+    });
+    </script>
+</body>
+</html>
